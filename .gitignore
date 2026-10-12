@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.DS_Store
+verified_catalog.json
+nutrition.json
