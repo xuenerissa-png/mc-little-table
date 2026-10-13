@@ -11,6 +11,36 @@ import sys
 from mclittle import MCP, unwrap_tool, extract_payload
 
 
+def parse_wallet(value):
+    """Parse query-my-coupons markdown ('# 您的优惠券列表' + '## 券名' blocks)."""
+    s = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+    if '暂无可用优惠券' in s:
+        return []
+    coupons = []
+    cur = None
+    for line in s.splitlines():
+        line = line.strip()
+        m = re.match(r'^##\s+(.+?)\s*$', line)
+        if m:
+            cur = {'title': m.group(1), 'price_text': None, 'valid': None, 'tags': []}
+            coupons.append(cur)
+            continue
+        if cur is None:
+            continue
+        m = re.match(r'^[-*]\s*\*\*优惠\*\*[:：]\s*(.+)$', line)
+        if m:
+            cur['price_text'] = m.group(1).strip()
+            continue
+        m = re.match(r'^[-*]\s*\*\*有效期\*\*[:：]\s*(.+)$', line)
+        if m:
+            cur['valid'] = m.group(1).strip()
+            continue
+        m = re.match(r'^[-*]\s*\*\*标签\*\*[:：]\s*(.+)$', line)
+        if m:
+            cur['tags'] = [t.strip() for t in re.split(r'[、,，]', m.group(1)) if t.strip()]
+    return coupons
+
+
 def parse_claimable(value):
     """Parse the markdown list returned by available-coupons into coupon titles."""
     s = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
@@ -121,12 +151,11 @@ def pick_best(baseline, scenarios):
 def collect(client, store_code, order_type, be_type, cart=None):
     """Read-only coupon reconnaissance for a store."""
     claimable = parse_claimable(unwrap_tool(client.call('available-coupons')))
-    wallet_raw = unwrap_tool(client.call('query-my-coupons'))
-    wallet_text = wallet_raw if isinstance(wallet_raw, str) else json.dumps(wallet_raw, ensure_ascii=False)
-    wallet = [] if '暂无可用优惠券' in wallet_text else [x for x in (extract_payload(wallet_text).get('data') or []) if isinstance(x, dict)]
+    wallet = parse_wallet(unwrap_tool(client.call('query-my-coupons')))
     store_coupons = parse_store_coupons(unwrap_tool(client.call('query-store-coupons', {
         'storeCode': store_code, 'orderType': order_type, 'beType': be_type})))
-    result = {'claimable': claimable, 'wallet_count': len(wallet), 'store_coupons': store_coupons}
+    result = {'claimable': claimable, 'wallet': wallet, 'wallet_count': len(wallet),
+              'store_coupons': store_coupons}
     if cart:
         codes = {str(i['productCode']) for i in cart}
         result['usable_for_cart'] = [c for c in store_coupons if applicable(c, codes)]
