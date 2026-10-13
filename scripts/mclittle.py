@@ -143,6 +143,17 @@ def unwrap_tool(response):
     return response.get('structuredContent',response)
 
 
+def extract_payload(value):
+    """Return the embedded JSON object from an MCP text payload (markdown-wrapped or plain)."""
+    if isinstance(value,dict): return value
+    s=value if isinstance(value,str) else json.dumps(value,ensure_ascii=False)
+    marker=s.find('## Original Response')
+    brace=s.find('{',marker if marker>=0 else 0)
+    if brace<0: return {}
+    try: return json.loads(s[brace:])
+    except ValueError: return {}
+
+
 def main():
     p=argparse.ArgumentParser(description='麦麦亲子小饭桌 · 1–12 岁儿童营养比较')
     sub=p.add_subparsers(dest='cmd',required=True)

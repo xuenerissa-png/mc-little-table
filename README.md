@@ -79,6 +79,21 @@ python3 scripts/meal_planner.py --catalog verified_catalog.json --age 3.5 --swap
 
 `--swap` 的第一项为当前组合 ID（英文逗号分隔），第二项为替换前 ID，第三项为替换后 ID。真实 MCP Token 仍由 `python3 scripts/token_settings.py` 的本地页面配置，或由环境变量提供。
 
+## v0.5：优惠券与最优价格
+
+```bash
+# 券侦察 + 比价（只读）
+python3 scripts/deals.py --store 1400116 --items 6102:1,3757:1,1450:1
+# 输出：可领取券 / 卡包券 / 本门店可用券 / 基线价 vs 券后价 排行与节省金额
+
+# 经家长明确同意后领取麦麦省可用券（会写入账户，终端二次确认）
+python3 scripts/deals.py --store 1400116 --claim
+```
+
+- `query-store-coupons` 才是「本单可用」的判据；`query-my-coupons` 仅代表卡包资产，不校验门店/订单类型。
+- 券通过 `couponId`/`couponCode` 挂在对应 `productCode` 上参与 `calculate-price`，自动比价选最省方案。
+- 错误码 60006 = 餐品当前时段不可售（早餐时段菜单不同），需按当前菜单重新选品。
+
 ## v0.4：下单协助流程
 组合确认后主动询问是否代下单：`query-meals` 取商品编码 → `calculate-price` 算价并二次确认 → `create-order`（orderType=1 必传 takeWayCode：eat-in 堂食 / locker-in 取餐柜）→ 呈现 `payH5Url` 交家长本人支付（约 15 分钟时限）。已实测全流程可用（2026-10 广州龙洞餐厅）。
 另：`parse_toon` 已兼容官方返回的 Markdown 包装层（`## Original Response` 后定位 JSON）。
